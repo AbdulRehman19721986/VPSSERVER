@@ -1,0 +1,26 @@
+{
+  "name": "nexusnode-core",
+  "version": "1.0.0",
+  "description": "NexusNode Core — Team Red X Premium Edition | by Abdul Rehman Rajpoot",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "nodemon server.js"
+  },
+  "dependencies": {
+    "bcryptjs": "^2.4.3",
+    "dockerode": "^4.0.2",
+    "express": "^4.18.2",
+    "jwt-simple": "^0.5.6",
+    "socket.io": "^4.7.2"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.2"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "keywords": ["vps","docker","panel","nexusnode","teamredx"],
+  "author": "Abdul Rehman Rajpoot",
+  "license": "MIT"
+}
