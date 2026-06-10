@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>NexusNode Core — Team Red X | Login</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Orbitron:wght@400;700;900&display=swap" rel="stylesheet"/>
+  <style>
+    :root {
+      --red:       #ff0033;
+      --red-dim:   #cc0027;
+      --red-glow:  rgba(255,0,51,0.35);
+      --bg:        #030303;
+      --card:      rgba(8,0,0,0.97);
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: var(--bg);
+      font-family: 'Share Tech Mono', monospace;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+    }
+
+    /* Scanlines */
+    body::after {
+      content: '';
+      position: fixed; inset: 0;
+      background: repeating-linear-gradient(
+        0deg, transparent, transparent 2px,
+        rgba(255,0,51,0.018) 2px, rgba(255,0,51,0.018) 4px
+      );
+      pointer-events: none;
+      z-index: 100;
+    }
+
+    /* Grid */
+    #grid {
+      position: fixed; inset: 0;
+      background-image:
+        linear-gradient(rgba(255,0,51,0.055) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255,0,51,0.055) 1px, transparent 1px);
+      background-size: 60px 60px;
+      animation: gridPulse 6s ease-in-out infinite;
+    }
+    @keyframes gridPulse { 0%,100%{opacity:.4} 50%{opacity:1} }
+
+    /* Particles */
+    #particles { position:fixed; inset:0; pointer-events:none; overflow:hidden; }
+    .pt {
+      position: absolute;
+      width: 2px; height: 2px;
+      background: var(--red);
+      border-radius: 50%;
+      animation: ptRise linear infinite;
+      opacity: 0;
+    }
+    @keyframes ptRise {
+      0%   { transform: translateY(110vh) translateX(0);   opacity: .8; }
+      80%  { opacity: .5; }
+      100% { transform: translateY(-10vh) translateX(80px); opacity: 0; }
+    }
+
+    /* Corner UI */
+    .corner { position:fixed; font-size:.6rem; letter-spacing:.1em; color: rgba(255,0,51,.45); }
+    .tl { top:12px; left:14px; }
+    .tr { top:12px; right:14px; }
+    .bl { bottom:12px; left:14px; }
+    .br { bottom:12px; right:14px; }
+
+    /* Card */
+    .card {
+      background: var(--card);
+      border: 1px solid rgba(255,0,51,.3);
+      border-radius: 8px;
+      box-shadow: 0 0 40px rgba(255,0,51,.18), inset 0 0 30px rgba(255,0,51,.04);
+      position: relative;
+      overflow: hidden;
+    }
+
+    /* Top scan bar */
+    .scan-bar {
+      position: absolute; top:0; left:0; right:0; height:2px; overflow:hidden;
+    }
+    .scan-bar::after {
+      content: '';
+      position: absolute; top:0; left:-100%; width:100%; height:100%;
+      background: linear-gradient(90deg, transparent, var(--red), transparent);
+      animation: scanSlide 2.5s ease-in-out infinite;
+    }
+    @keyframes scanSlide { 0%{left:-100%} 100%{left:100%} }
+
+    /* Logo */
+    .logo-hex { color:var(--red); font-size:3rem; animation: hexPulse 3s ease-in-out infinite; }
+    @keyframes hexPulse { 0%,100%{filter:drop-shadow(0 0 8px var(--red))} 50%{filter:drop-shadow(0 0 24px var(--red)) drop-shadow(0 0 48px var(--red))} }
+
+    .logo-title {
+      font-family: 'Orbitron', monospace;
+      color: var(--red);
+      font-weight: 900;
+      letter-spacing: .12em;
+      text-shadow: 0 0 10px var(--red), 0 0 30px var(--red-glow);
+      animation: flicker 7s infinite;
+    }
+    @keyframes flicker { 0%,18%,20%,55%,57%,100%{opacity:1} 19%,56%{opacity:.55} }
+
+    /* Inputs */
+    .inp-wrap label { display:block; font-size:.65rem; letter-spacing:.12em; color:var(--red); margin-bottom:5px; }
+    .inp-wrap input {
+      width:100%; padding:11px 14px; border-radius:4px;
+      background: rgba(255,0,51,.055);
+      border: 1px solid rgba(255,0,51,.28);
+      color: #fff; font-family: 'Share Tech Mono', monospace; font-size:.85rem;
+      transition: border .2s, box-shadow .2s;
+    }
+    .inp-wrap input:focus {
+      outline:none;
+      border-color: var(--red);
+      box-shadow: 0 0 12px rgba(255,0,51,.3);
+    }
+    .inp-wrap input::placeholder { color: rgba(255,255,255,.25); }
+
+    /* Button */
+    .btn-primary {
+      width:100%; padding:13px;
+      background: linear-gradient(135deg, #9b0023, #cc0033);
+      border: 1px solid rgba(255,0,51,.5);
+      border-radius:4px;
+      color:#fff; font-family:'Orbitron',monospace; font-weight:700;
+      font-size:.78rem; letter-spacing:.14em;
+      cursor:pointer;
+      transition: all .25s;
+    }
+    .btn-primary:hover:not(:disabled) {
+      background: linear-gradient(135deg, #cc0033, #ff0044);
+      box-shadow: 0 0 20px rgba(255,0,51,.55);
+      transform: translateY(-1px);
+    }
+    .btn-primary:disabled { opacity:.55; cursor:not-allowed; }
+
+    /* Alert */
+    .alert { padding:10px 14px; border-radius:4px; font-size:.78rem; }
+    .alert-err  { background:rgba(255,0,51,.1); border:1px solid rgba(255,0,51,.45); color:#ff6680; }
+    .alert-ok   { background:rgba(0,255,100,.08); border:1px solid rgba(0,255,100,.35); color:#00ff7a; }
+
+    /* Links */
+    .social-link {
+      display:flex; align-items:center; gap:5px;
+      color:rgba(255,255,255,.3); font-size:.7rem;
+      text-decoration:none;
+      transition:color .2s;
+    }
+    .social-link:hover { color:var(--red); }
+
+    /* Dot pulse */
+    @keyframes dotPulse { 0%,100%{opacity:1} 50%{opacity:.3} }
+    .dot-pulse { animation: dotPulse 1.5s ease-in-out infinite; }
+  </style>
+</head>
+<body>
+  <div id="grid"></div>
+  <div id="particles"></div>
+
+  <div class="corner tl">[ SYSTEM: ACTIVE ]</div>
+  <div class="corner tr" id="clock">00:00:00 UTC</div>
+  <div class="corner bl">NEXUSNODE CORE v1.0.0</div>
+  <div class="corner br">TEAM RED X © 2025</div>
+
+  <div class="relative z-10 w-full max-w-sm px-4">
+
+    <!-- Header -->
+    <div class="text-center mb-7">
+      <div class="logo-hex mb-1">⬡</div>
+      <h1 class="logo-title text-2xl mb-1">NEXUSNODE CORE</h1>
+      <p style="color:rgba(255,0,51,.7);font-size:.65rem;letter-spacing:.2em;">TEAM RED X PREMIUM EDITION</p>
+      <p style="color:rgba(255,255,255,.18);font-size:.6rem;margin-top:4px;">— by Abdul Rehman Rajpoot —</p>
+    </div>
+
+    <!-- Card -->
+    <div class="card px-7 py-8">
+      <div class="scan-bar"></div>
+
+      <!-- Status bar -->
+      <div class="flex items-center gap-4 mb-6" style="font-size:.6rem;color:rgba(255,255,255,.35);letter-spacing:.08em;">
+        <span><span class="text-green-500 dot-pulse">●</span> TLS ACTIVE</span>
+        <span><span class="text-green-500 dot-pulse" style="animation-delay:.5s">●</span> JWT SECURED</span>
+        <span><span class="text-green-500 dot-pulse" style="animation-delay:1s">●</span> DOCKER LINKED</span>
+      </div>
+
+      <div class="flex items-center gap-2 mb-5">
+        <div style="width:2px;height:18px;background:var(--red);border-radius:1px;"></div>
+        <span style="color:rgba(255,255,255,.7);font-size:.75rem;letter-spacing:.12em;">SECURE ACCESS GATEWAY</span>
+      </div>
+
+      <!-- Alert -->
+      <div id="alert" class="alert mb-4 hidden"></div>
+
+      <!-- Form -->
+      <div class="space-y-4">
+        <div class="inp-wrap">
+          <label>[ USERNAME ]</label>
+          <input id="username" type="text" placeholder="Enter username…" autocomplete="username"/>
+        </div>
+        <div class="inp-wrap">
+          <label>[ PASSWORD ]</label>
+          <input id="password" type="password" placeholder="Enter password…" autocomplete="current-password"/>
+        </div>
+        <button id="loginBtn" class="btn-primary mt-2">⚡ INITIALIZE ACCESS</button>
+      </div>
+
+      <!-- Divider -->
+      <div style="border-top:1px solid rgba(255,0,51,.15);margin:22px 0 16px;"></div>
+
+      <!-- Social links -->
+      <p style="color:rgba(255,255,255,.2);font-size:.6rem;letter-spacing:.1em;margin-bottom:10px;">SUPPORT CHANNELS</p>
+      <div class="grid grid-cols-2 gap-2">
+        <a href="https://wa.me/923009842133" target="_blank" class="social-link">📱 WhatsApp</a>
+        <a href="https://t.me/TeamRedxhacker2" target="_blank" class="social-link">💬 Telegram</a>
+        <a href="https://youtube.com/@rootmindtech" target="_blank" class="social-link">📺 YouTube</a>
+        <a href="https://github.com/AbdulRehman19721986/redxbot302" target="_blank" class="social-link">⚡ GitHub</a>
+      </div>
+    </div>
+
+    <p style="text-align:center;color:rgba(255,255,255,.14);font-size:.6rem;margin-top:14px;">
+      Registration by admin invitation only
+    </p>
+  </div>
+
+<script>
+  // Clock
+  (function tick(){
+    document.getElementById('clock').textContent =
+      new Date().toUTCString().replace(/.*,\s/,'');
+    setTimeout(tick, 1000);
+  })();
+
+  // Particles
+  const pc = document.getElementById('particles');
+  for (let i = 0; i < 25; i++) {
+    const p = document.createElement('div');
+    p.className = 'pt';
+    p.style.cssText = `left:${Math.random()*100}vw;animation-duration:${6+Math.random()*12}s;animation-delay:${Math.random()*8}s;`;
+    pc.appendChild(p);
+  }
+
+  // Auth
+  const btn  = document.getElementById('loginBtn');
+  const uInp = document.getElementById('username');
+  const pInp = document.getElementById('password');
+
+  function showAlert(msg, type) {
+    const el = document.getElementById('alert');
+    el.className = 'alert mb-4 ' + (type === 'ok' ? 'alert-ok' : 'alert-err');
+    el.textContent = msg;
+    el.classList.remove('hidden');
+  }
+
+  async function login() {
+    const username = uInp.value.trim();
+    const password = pInp.value;
+    if (!username || !password) return showAlert('[ ERROR ] All fields required', 'err');
+    btn.disabled = true;
+    btn.textContent = '⟳ AUTHENTICATING…';
+    try {
+      const res  = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, password }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        showAlert('[ DENIED ] ' + data.error, 'err');
+        btn.disabled = false;
+        btn.textContent = '⚡ INITIALIZE ACCESS';
+        return;
+      }
+      localStorage.setItem('nexus_token', data.token);
+      localStorage.setItem('nexus_user',  JSON.stringify(data.user));
+      showAlert('[ ACCESS GRANTED ] Initializing dashboard…', 'ok');
+      setTimeout(() => { window.location.href = '/dashboard.html'; }, 900);
+    } catch (e) {
+      showAlert('[ ERROR ] ' + e.message, 'err');
+      btn.disabled = false;
+      btn.textContent = '⚡ INITIALIZE ACCESS';
+    }
+  }
+
+  btn.addEventListener('click', login);
+  pInp.addEventListener('keydown', e => e.key === 'Enter' && login());
+  uInp.addEventListener('keydown', e => e.key === 'Enter' && pInp.focus());
+
+  // Already logged in?
+  const tok = localStorage.getItem('nexus_token');
+  if (tok) {
+    fetch('/api/auth/me', { headers: { Authorization: 'Bearer ' + tok } })
+      .then(r => { if (r.ok) window.location.href = '/dashboard.html'; })
+      .catch(() => {});
+  }
+</script>
+</body>
+</html>

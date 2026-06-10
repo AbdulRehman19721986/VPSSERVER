@@ -1,0 +1,883 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>NexusNode Core — Dashboard</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Orbitron:wght@400;700;900&display=swap" rel="stylesheet"/>
+  <style>
+    :root{--red:#ff0033;--red2:#cc0027;--bg:#030303;--s1:#0d0d0d;--s2:#111111;--b:rgba(255,0,51,.22);--font:'Share Tech Mono',monospace;}
+    *{box-sizing:border-box;margin:0;padding:0;}
+    html,body{height:100%;overflow:hidden;}
+    body{background:var(--bg);font-family:var(--font);color:#ccc;display:flex;}
+
+    /* Scrollbars */
+    ::-webkit-scrollbar{width:4px;height:4px;}
+    ::-webkit-scrollbar-track{background:#0a0a0a;}
+    ::-webkit-scrollbar-thumb{background:var(--red2);border-radius:2px;}
+
+    /* Scanlines overlay */
+    body::after{content:'';position:fixed;inset:0;pointer-events:none;z-index:9999;
+      background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(255,0,51,.012) 2px,rgba(255,0,51,.012) 4px);}
+
+    /* ── SIDEBAR ── */
+    #sidebar{
+      width:220px;min-width:220px;background:var(--s1);
+      border-right:1px solid var(--b);
+      display:flex;flex-direction:column;
+      height:100vh;overflow:hidden;
+    }
+    .sb-logo{
+      padding:20px 16px 16px;
+      border-bottom:1px solid var(--b);
+    }
+    .sb-logo-title{font-family:'Orbitron',monospace;font-size:.8rem;font-weight:900;color:var(--red);letter-spacing:.1em;
+      text-shadow:0 0 8px var(--red);}
+    .sb-logo-sub{font-size:.55rem;color:rgba(255,0,51,.55);letter-spacing:.12em;margin-top:2px;}
+
+    .nav-section{padding:14px 12px 4px;font-size:.55rem;letter-spacing:.15em;color:rgba(255,255,255,.25);}
+    .nav-item{
+      display:flex;align-items:center;gap:10px;
+      padding:9px 14px;margin:1px 8px;
+      border-radius:5px;cursor:pointer;
+      font-size:.72rem;letter-spacing:.04em;color:rgba(255,255,255,.5);
+      transition:all .2s;position:relative;
+    }
+    .nav-item:hover{background:rgba(255,0,51,.08);color:rgba(255,255,255,.85);}
+    .nav-item.active{background:rgba(255,0,51,.12);color:#fff;border:1px solid rgba(255,0,51,.3);}
+    .nav-item.active::before{content:'';position:absolute;left:0;top:50%;transform:translateY(-50%);width:3px;height:60%;background:var(--red);border-radius:0 2px 2px 0;}
+    .nav-badge{margin-left:auto;background:var(--red);color:#fff;font-size:.55rem;padding:1px 6px;border-radius:10px;min-width:18px;text-align:center;}
+
+    .sb-footer{margin-top:auto;padding:12px 14px;border-top:1px solid var(--b);font-size:.6rem;color:rgba(255,255,255,.2);}
+    .sb-user{display:flex;align-items:center;gap:8px;margin-bottom:8px;}
+    .sb-avatar{width:28px;height:28px;border-radius:50%;background:linear-gradient(135deg,#9b0023,#cc0033);display:flex;align-items:center;justify-content:center;font-size:.65rem;color:#fff;border:1px solid rgba(255,0,51,.4);}
+
+    /* ── MAIN ── */
+    #main{flex:1;display:flex;flex-direction:column;height:100vh;overflow:hidden;}
+
+    /* Topbar */
+    #topbar{
+      height:48px;min-height:48px;background:var(--s1);
+      border-bottom:1px solid var(--b);
+      display:flex;align-items:center;justify-content:space-between;
+      padding:0 20px;
+    }
+    .topbar-title{font-family:'Orbitron',monospace;font-size:.75rem;color:#fff;letter-spacing:.08em;}
+    .topbar-right{display:flex;align-items:center;gap:14px;font-size:.65rem;}
+    .status-dot{width:7px;height:7px;border-radius:50%;background:#00ff88;box-shadow:0 0 6px #00ff88;animation:dotPulse 2s infinite;}
+    @keyframes dotPulse{0%,100%{opacity:1}50%{opacity:.4}}
+
+    /* Content */
+    #content{flex:1;overflow-y:auto;padding:20px;}
+
+    /* ── CARDS ── */
+    .card{background:var(--s2);border:1px solid var(--b);border-radius:6px;padding:16px;}
+    .card-title{font-family:'Orbitron',monospace;font-size:.7rem;letter-spacing:.1em;color:rgba(255,255,255,.7);margin-bottom:12px;display:flex;align-items:center;gap:8px;}
+    .card-title::before{content:'';display:block;width:3px;height:14px;background:var(--red);border-radius:1px;}
+
+    /* Stat cards */
+    .stat-card{background:var(--s2);border:1px solid var(--b);border-radius:6px;padding:16px 18px;position:relative;overflow:hidden;}
+    .stat-card::after{content:'';position:absolute;bottom:0;left:0;right:0;height:2px;background:var(--red);opacity:.5;}
+    .stat-val{font-family:'Orbitron',monospace;font-size:1.8rem;font-weight:900;color:var(--red);line-height:1;margin-bottom:4px;}
+    .stat-lbl{font-size:.62rem;color:rgba(255,255,255,.35);letter-spacing:.1em;}
+
+    /* Table */
+    .tbl{width:100%;border-collapse:collapse;font-size:.72rem;}
+    .tbl th{text-align:left;padding:8px 12px;color:rgba(255,255,255,.35);font-size:.6rem;letter-spacing:.1em;border-bottom:1px solid var(--b);}
+    .tbl td{padding:9px 12px;border-bottom:1px solid rgba(255,0,51,.07);color:rgba(255,255,255,.75);vertical-align:middle;}
+    .tbl tr:hover td{background:rgba(255,0,51,.04);}
+
+    /* Status badges */
+    .badge{display:inline-block;padding:2px 8px;border-radius:3px;font-size:.62rem;letter-spacing:.06em;}
+    .badge-run{background:rgba(0,255,100,.1);border:1px solid rgba(0,255,100,.3);color:#00ff7a;}
+    .badge-stop{background:rgba(255,50,50,.1);border:1px solid rgba(255,50,50,.3);color:#ff6666;}
+    .badge-rm{background:rgba(100,100,100,.1);border:1px solid rgba(100,100,100,.3);color:#888;}
+    .badge-free{background:rgba(255,255,0,.08);border:1px solid rgba(255,255,0,.3);color:#ffff66;}
+    .badge-prem{background:rgba(255,0,51,.1);border:1px solid rgba(255,0,51,.4);color:#ff6680;}
+
+    /* Buttons */
+    .btn{padding:5px 12px;border-radius:4px;font-size:.65rem;font-family:var(--font);cursor:pointer;border:1px solid;transition:all .2s;letter-spacing:.05em;}
+    .btn-red{background:rgba(204,0,39,.15);border-color:rgba(255,0,51,.5);color:#ff6680;}
+    .btn-red:hover{background:rgba(204,0,39,.3);box-shadow:0 0 10px rgba(255,0,51,.3);}
+    .btn-green{background:rgba(0,200,80,.1);border-color:rgba(0,255,100,.4);color:#00ff7a;}
+    .btn-green:hover{background:rgba(0,200,80,.25);}
+    .btn-gray{background:rgba(80,80,80,.15);border-color:rgba(120,120,120,.3);color:#aaa;}
+    .btn-gray:hover{background:rgba(80,80,80,.3);}
+    .btn-primary{background:linear-gradient(135deg,var(--red2),var(--red));border-color:var(--red);color:#fff;font-family:'Orbitron',monospace;font-weight:700;padding:9px 20px;font-size:.7rem;letter-spacing:.1em;}
+    .btn-primary:hover{box-shadow:0 0 18px rgba(255,0,51,.5);transform:translateY(-1px);}
+    .btn-primary:disabled{opacity:.5;cursor:not-allowed;transform:none;}
+    .btn-sm{padding:3px 8px;font-size:.6rem;}
+
+    /* Form elements */
+    .form-group{margin-bottom:14px;}
+    .form-group label{display:block;font-size:.62rem;letter-spacing:.1em;color:rgba(255,0,51,.8);margin-bottom:5px;}
+    .form-group input,.form-group select{
+      width:100%;padding:9px 12px;
+      background:rgba(255,0,51,.04);border:1px solid rgba(255,0,51,.25);border-radius:4px;
+      color:#fff;font-family:var(--font);font-size:.78rem;
+      transition:border .2s,box-shadow .2s;
+    }
+    .form-group input:focus,.form-group select:focus{outline:none;border-color:var(--red);box-shadow:0 0 10px rgba(255,0,51,.25);}
+    .form-group input::placeholder{color:rgba(255,255,255,.2);}
+    .form-group select option{background:#111;color:#fff;}
+
+    /* Template cards */
+    .tmpl-card{
+      border:1px solid rgba(255,0,51,.2);border-radius:6px;padding:14px;cursor:pointer;
+      transition:all .2s;background:rgba(255,0,51,.03);
+    }
+    .tmpl-card:hover{border-color:rgba(255,0,51,.5);background:rgba(255,0,51,.06);}
+    .tmpl-card.selected{border-color:var(--red);background:rgba(255,0,51,.1);box-shadow:0 0 14px rgba(255,0,51,.25);}
+    .tmpl-icon{font-size:1.6rem;margin-bottom:6px;}
+    .tmpl-label{font-size:.68rem;color:rgba(255,255,255,.8);}
+    .tmpl-sub{font-size:.58rem;color:rgba(255,0,51,.6);margin-top:2px;}
+
+    /* Chat */
+    #chatBox{height:340px;overflow-y:auto;padding:10px;background:rgba(0,0,0,.3);border-radius:4px;display:flex;flex-direction:column;gap:5px;}
+    .chat-msg{max-width:78%;padding:7px 11px;border-radius:5px;font-size:.72rem;line-height:1.4;}
+    .chat-msg.mine{align-self:flex-end;background:rgba(204,0,39,.2);border:1px solid rgba(255,0,51,.3);}
+    .chat-msg.other{align-self:flex-start;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);}
+    .chat-msg.admin-msg{border-color:rgba(255,215,0,.4);background:rgba(255,215,0,.06);}
+    .chat-meta{font-size:.55rem;opacity:.5;margin-top:3px;}
+    .sys-line{text-align:center;color:rgba(255,255,255,.25);font-size:.6rem;padding:3px 0;}
+
+    /* Log viewer */
+    #logViewer{
+      height:340px;overflow-y:auto;padding:10px;
+      background:#000;border:1px solid rgba(255,0,51,.2);border-radius:4px;
+      font-size:.68rem;line-height:1.6;color:#00ff88;
+      white-space:pre-wrap;word-break:break-all;
+    }
+
+    /* Progress bar */
+    .progress-bar{height:3px;background:rgba(255,0,51,.15);border-radius:2px;overflow:hidden;margin-bottom:12px;}
+    .progress-fill{height:100%;background:var(--red);transition:width .3s;width:0%;}
+
+    /* Alert */
+    .alert{padding:9px 14px;border-radius:4px;font-size:.72rem;}
+    .alert-err{background:rgba(255,0,51,.1);border:1px solid rgba(255,0,51,.4);color:#ff6680;}
+    .alert-ok{background:rgba(0,255,100,.08);border:1px solid rgba(0,255,100,.35);color:#00ff7a;}
+    .alert-info{background:rgba(0,150,255,.08);border:1px solid rgba(0,150,255,.3);color:#66bbff;}
+
+    /* Modal */
+    .modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:500;display:flex;align-items:center;justify-content:center;}
+    .modal{background:var(--s1);border:1px solid var(--b);border-radius:8px;padding:24px;width:90%;max-width:480px;position:relative;}
+    .modal-title{font-family:'Orbitron',monospace;font-size:.85rem;color:var(--red);margin-bottom:16px;letter-spacing:.08em;}
+
+    /* Hidden */
+    .hidden{display:none!important;}
+    .tab-view{display:none;}
+    .tab-view.active{display:block;}
+
+    /* Responsive sidebar */
+    @media(max-width:680px){
+      #sidebar{width:52px;min-width:52px;}
+      .nav-label,.sb-logo-sub,.sb-logo-title,.sb-footer-text{display:none;}
+      .sb-logo{padding:14px 10px;}
+      .nav-item{justify-content:center;padding:10px;}
+    }
+  </style>
+</head>
+<body>
+
+<!-- ═══ SIDEBAR ═══ -->
+<nav id="sidebar">
+  <div class="sb-logo">
+    <div class="sb-logo-title">NEXUSNODE</div>
+    <div class="sb-logo-sub">TEAM RED X PREMIUM</div>
+  </div>
+
+  <div class="nav-section nav-label">MANAGEMENT</div>
+  <div class="nav-item active" data-tab="overview">
+    <span>📊</span><span class="nav-label">Overview</span>
+  </div>
+  <div class="nav-item" data-tab="containers">
+    <span>📦</span><span class="nav-label">Containers</span>
+    <span class="nav-badge hidden" id="runBadge">0</span>
+  </div>
+  <div class="nav-item" data-tab="create">
+    <span>➕</span><span class="nav-label">Create VPS</span>
+  </div>
+
+  <div class="nav-section nav-label" id="adminSectionLabel" style="display:none">ADMIN</div>
+  <div class="nav-item hidden" id="navUsers" data-tab="users">
+    <span>👥</span><span class="nav-label">Users</span>
+  </div>
+
+  <div class="nav-section nav-label">TOOLS</div>
+  <div class="nav-item" data-tab="chat">
+    <span>💬</span><span class="nav-label">Live Chat</span>
+    <span class="nav-badge hidden" id="chatBadge">0</span>
+  </div>
+  <div class="nav-item" data-tab="about">
+    <span>ℹ️</span><span class="nav-label">About</span>
+  </div>
+
+  <div class="sb-footer">
+    <div class="sb-user">
+      <div class="sb-avatar" id="sbAvatar">A</div>
+      <div>
+        <div style="color:rgba(255,255,255,.7);font-size:.65rem;" id="sbUsername">admin</div>
+        <div style="color:rgba(255,0,51,.6);font-size:.55rem;" id="sbPlan">premium</div>
+      </div>
+    </div>
+    <button class="btn btn-red btn-sm" onclick="logout()" style="width:100%">⏻ Logout</button>
+  </div>
+</nav>
+
+<!-- ═══ MAIN ═══ -->
+<div id="main">
+  <!-- Topbar -->
+  <div id="topbar">
+    <div class="topbar-title" id="topbarTitle">SYSTEM OVERVIEW</div>
+    <div class="topbar-right">
+      <span><span class="status-dot"></span></span>
+      <span style="color:rgba(255,255,255,.35)" id="topClock">--:--:--</span>
+      <span style="color:rgba(255,255,255,.25);font-size:.6rem">v1.0.0</span>
+    </div>
+  </div>
+
+  <!-- Content area -->
+  <div id="content">
+
+    <!-- ═══ OVERVIEW TAB ═══ -->
+    <div class="tab-view active" id="tab-overview">
+      <div class="grid grid-cols-2 gap-4 mb-5" style="grid-template-columns:repeat(auto-fit,minmax(130px,1fr))">
+        <div class="stat-card"><div class="stat-val" id="statRunning">—</div><div class="stat-lbl">RUNNING</div></div>
+        <div class="stat-card"><div class="stat-val" id="statTotal">—</div><div class="stat-lbl">TOTAL CONTAINERS</div></div>
+        <div class="stat-card"><div class="stat-val" id="statUsers">—</div><div class="stat-lbl">USERS</div></div>
+        <div class="stat-card"><div class="stat-val" id="statCPUs">—</div><div class="stat-lbl">HOST CPUs</div></div>
+      </div>
+
+      <div class="grid gap-4" style="grid-template-columns:repeat(auto-fit,minmax(280px,1fr))">
+        <div class="card">
+          <div class="card-title">SYSTEM INFO</div>
+          <div style="font-size:.7rem;line-height:2;color:rgba(255,255,255,.55)">
+            <div>🖥️ OS: <span id="sysOS" style="color:#fff">—</span></div>
+            <div>⚙️ Arch: <span id="sysArch" style="color:#fff">—</span></div>
+            <div>🐋 Docker: <span id="sysDocker" style="color:#fff">—</span></div>
+            <div>💾 Host RAM: <span id="sysRAM" style="color:#fff">—</span></div>
+            <div>📦 Images: <span id="sysImages" style="color:#fff">—</span></div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-title">QUICK LINKS</div>
+          <div style="display:flex;flex-direction:column;gap:8px;font-size:.7rem">
+            <a href="https://wa.me/923009842133" target="_blank" style="color:rgba(255,255,255,.55);text-decoration:none;transition:color .2s" onmouseover="this.style.color='#ff0033'" onmouseout="this.style.color='rgba(255,255,255,.55)'">📱 WhatsApp: +923009842133</a>
+            <a href="https://t.me/TeamRedxhacker2" target="_blank" style="color:rgba(255,255,255,.55);text-decoration:none" onmouseover="this.style.color='#ff0033'" onmouseout="this.style.color='rgba(255,255,255,.55)'">💬 Telegram: @TeamRedxhacker2</a>
+            <a href="https://youtube.com/@rootmindtech" target="_blank" style="color:rgba(255,255,255,.55);text-decoration:none" onmouseover="this.style.color='#ff0033'" onmouseout="this.style.color='rgba(255,255,255,.55)'">📺 YouTube: @rootmindtech</a>
+            <a href="https://github.com/AbdulRehman19721986/redxbot302" target="_blank" style="color:rgba(255,255,255,.55);text-decoration:none" onmouseover="this.style.color='#ff0033'" onmouseout="this.style.color='rgba(255,255,255,.55)'">⚡ GitHub: redxbot302</a>
+            <a href="https://chat.whatsapp.com/LhSmx2SeXX75r8I2bxsNDo" target="_blank" style="color:rgba(255,255,255,.55);text-decoration:none" onmouseover="this.style.color='#ff0033'" onmouseout="this.style.color='rgba(255,255,255,.55)'">👥 WhatsApp Group</a>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══ CONTAINERS TAB ═══ -->
+    <div class="tab-view hidden" id="tab-containers">
+      <div class="card">
+        <div class="card-title">
+          ACTIVE CONTAINERS
+          <button class="btn btn-gray btn-sm" style="margin-left:auto" onclick="loadContainers()">↺ Refresh</button>
+        </div>
+        <div id="containerAlert" class="alert hidden mb-3"></div>
+        <div id="containerList">
+          <div style="text-align:center;color:rgba(255,255,255,.25);padding:30px;font-size:.75rem">Loading containers…</div>
+        </div>
+      </div>
+
+      <!-- Log modal -->
+      <div class="modal-bg hidden" id="logModal">
+        <div class="modal" style="max-width:680px">
+          <div class="modal-title">📋 CONTAINER LOGS — <span id="logContainerName"></span></div>
+          <div id="logViewer">Loading…</div>
+          <div style="margin-top:12px;display:flex;gap:8px">
+            <button class="btn btn-gray" onclick="document.getElementById('logModal').classList.add('hidden')">✕ Close</button>
+            <button class="btn btn-gray" onclick="refreshLogs()">↺ Refresh</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══ CREATE TAB ═══ -->
+    <div class="tab-view hidden" id="tab-create">
+      <div class="grid gap-4" style="grid-template-columns:repeat(auto-fit,minmax(300px,1fr))">
+
+        <div class="card">
+          <div class="card-title">SELECT TEMPLATE</div>
+          <div id="tmplGrid" class="grid grid-cols-2 gap-3">
+            <div style="color:rgba(255,255,255,.3);font-size:.7rem">Loading…</div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-title">CONFIGURE VPS</div>
+          <div id="createAlert" class="alert hidden mb-3"></div>
+          <div class="progress-bar hidden" id="createProgress">
+            <div class="progress-fill" id="progressFill"></div>
+          </div>
+          <div id="createMsg" class="hidden" style="font-size:.65rem;color:rgba(0,255,100,.7);margin-bottom:8px;"></div>
+
+          <div class="form-group">
+            <label>[ CONTAINER NAME ]</label>
+            <input id="cName" type="text" placeholder="my-server"/>
+          </div>
+          <div class="form-group">
+            <label>[ RAM (MB) ]</label>
+            <input id="cRAM" type="number" value="512" min="128" max="16384"/>
+            <div style="font-size:.6rem;color:rgba(255,255,255,.25);margin-top:3px">Free: max 1024MB · Premium: max 16384MB</div>
+          </div>
+          <div class="form-group">
+            <label>[ HOST PORT (leave blank = auto) ]</label>
+            <input id="cPort" type="number" placeholder="Auto-assigned"/>
+          </div>
+          <button class="btn btn-primary" id="createBtn" onclick="createContainer()">⚡ LAUNCH CONTAINER</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══ USERS TAB (admin) ═══ -->
+    <div class="tab-view hidden" id="tab-users">
+      <div class="card">
+        <div class="card-title">
+          USER TIER MATRIX
+          <button class="btn btn-primary btn-sm" style="margin-left:auto;padding:5px 12px;font-size:.62rem" onclick="showAddUserModal()">+ Add User</button>
+        </div>
+        <div id="userAlert" class="alert hidden mb-3"></div>
+        <div id="userList">
+          <div style="text-align:center;color:rgba(255,255,255,.25);padding:30px;font-size:.75rem">Loading users…</div>
+        </div>
+      </div>
+
+      <!-- Add User Modal -->
+      <div class="modal-bg hidden" id="addUserModal">
+        <div class="modal">
+          <div class="modal-title">➕ CREATE USER</div>
+          <div id="addUserAlert" class="alert hidden mb-3"></div>
+          <div class="form-group"><label>USERNAME</label><input id="auName" type="text" placeholder="username"/></div>
+          <div class="form-group"><label>PASSWORD</label><input id="auPass" type="password" placeholder="password"/></div>
+          <div class="form-group"><label>PLAN</label>
+            <select id="auPlan"><option value="free">Free</option><option value="premium">Premium</option></select>
+          </div>
+          <div class="form-group"><label>ROLE</label>
+            <select id="auRole"><option value="user">User</option><option value="admin">Admin</option></select>
+          </div>
+          <div style="display:flex;gap:8px;margin-top:4px">
+            <button class="btn btn-primary" onclick="addUser()">✓ Create</button>
+            <button class="btn btn-gray" onclick="document.getElementById('addUserModal').classList.add('hidden')">✕ Cancel</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══ CHAT TAB ═══ -->
+    <div class="tab-view hidden" id="tab-chat">
+      <div class="card" style="max-width:700px">
+        <div class="card-title">💬 LIVE SUPPORT CHAT</div>
+        <div id="chatBox"></div>
+        <div style="font-size:.6rem;color:rgba(255,255,255,.2);height:14px;margin:4px 0" id="typingIndicator"></div>
+        <div style="display:flex;gap:8px;margin-top:6px">
+          <input id="chatInput" type="text" placeholder="Type a message…"
+            style="flex:1;padding:9px 12px;background:rgba(255,0,51,.04);border:1px solid rgba(255,0,51,.25);border-radius:4px;color:#fff;font-family:var(--font);font-size:.75rem"
+            onkeydown="if(event.key==='Enter')sendMsg()"/>
+          <button class="btn btn-red" onclick="sendMsg()">Send ▶</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══ ABOUT TAB ═══ -->
+    <div class="tab-view hidden" id="tab-about">
+      <div class="card" style="max-width:600px">
+        <div class="card-title">ABOUT NEXUSNODE CORE</div>
+        <div style="line-height:2;font-size:.75rem;color:rgba(255,255,255,.6)">
+          <div style="font-family:'Orbitron',monospace;font-size:1rem;color:var(--red);margin-bottom:10px">NEXUSNODE CORE</div>
+          <div>Team Red X Premium Edition — VPS Management Panel</div>
+          <div style="margin-top:12px;padding:12px;background:rgba(0,0,0,.3);border-left:3px solid var(--red);border-radius:0 4px 4px 0;font-size:.68rem">
+            <div>============================================================</div>
+            <div>— by Abdul Rehman Rajpoot</div>
+            <div>============================================================</div>
+          </div>
+          <div style="margin-top:16px;display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:.68rem">
+            <div><span style="color:var(--red)">WhatsApp:</span> +923009842133</div>
+            <div><span style="color:var(--red)">Telegram:</span> @TeamRedxhacker2</div>
+            <div><span style="color:var(--red)">YouTube:</span> @rootmindtech</div>
+            <div><span style="color:var(--red)">GitHub:</span> AbdulRehman19721986</div>
+          </div>
+          <div style="margin-top:16px;font-size:.65rem;color:rgba(255,255,255,.3)">
+            Runtime: Node.js + Express + Socket.io + Dockerode<br/>
+            Auth: JWT + bcryptjs · DB: JSON flat-file · UI: Tailwind CSS<br/>
+            Mode: 24/7 · RestartPolicy: always
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /content -->
+</div><!-- /main -->
+
+<script>
+// ════════════════════════════════════════
+//  STATE
+// ════════════════════════════════════════
+const TOKEN = localStorage.getItem('nexus_token');
+const USER  = JSON.parse(localStorage.getItem('nexus_user') || '{}');
+if (!TOKEN) { window.location.href = '/'; }
+
+let templates      = [];
+let selectedTmpl   = null;
+let currentLogId   = null;
+let chatUnread     = 0;
+let socket         = null;
+
+// ════════════════════════════════════════
+//  API HELPER
+// ════════════════════════════════════════
+async function api(path, method = 'GET', body = null) {
+  const opts = {
+    method,
+    headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + TOKEN },
+  };
+  if (body) opts.body = JSON.stringify(body);
+  const res  = await fetch(path, opts);
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || 'Request failed');
+  return data;
+}
+
+// ════════════════════════════════════════
+//  INIT
+// ════════════════════════════════════════
+function init() {
+  // User info
+  document.getElementById('sbUsername').textContent = USER.username || '—';
+  document.getElementById('sbPlan').textContent     = (USER.plan || '—').toUpperCase();
+  document.getElementById('sbAvatar').textContent   = (USER.username || 'U')[0].toUpperCase();
+
+  // Admin-only elements
+  if (USER.role === 'admin') {
+    document.getElementById('navUsers').classList.remove('hidden');
+    document.getElementById('adminSectionLabel').style.display = '';
+  }
+
+  // Nav
+  document.querySelectorAll('.nav-item[data-tab]').forEach(el => {
+    el.addEventListener('click', () => switchTab(el.dataset.tab));
+  });
+
+  // Clock
+  setInterval(() => {
+    document.getElementById('topClock').textContent =
+      new Date().toTimeString().split(' ')[0];
+  }, 1000);
+
+  // Load initial data
+  loadStats();
+  loadTemplates();
+  initSocket();
+
+  setInterval(loadStats, 15000);
+}
+
+// ════════════════════════════════════════
+//  TAB SWITCHING
+// ════════════════════════════════════════
+const TAB_TITLES = {
+  overview: 'SYSTEM OVERVIEW', containers: 'CONTAINER MANAGEMENT',
+  create: 'DEPLOY NEW VPS', users: 'USER TIER MATRIX',
+  chat: 'LIVE SUPPORT CHAT', about: 'ABOUT',
+};
+
+function switchTab(name) {
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  document.querySelectorAll('.tab-view').forEach(v => { v.classList.remove('active'); v.classList.add('hidden'); });
+  const nav = document.querySelector(`.nav-item[data-tab="${name}"]`);
+  const tab = document.getElementById('tab-' + name);
+  if (nav) nav.classList.add('active');
+  if (tab) { tab.classList.remove('hidden'); tab.classList.add('active'); }
+  document.getElementById('topbarTitle').textContent = TAB_TITLES[name] || name.toUpperCase();
+
+  if (name === 'containers') loadContainers();
+  if (name === 'users')      loadUsers();
+  if (name === 'chat')       { chatUnread = 0; const b = document.getElementById('chatBadge'); b.classList.add('hidden'); b.textContent = '0'; }
+}
+
+// ════════════════════════════════════════
+//  STATS
+// ════════════════════════════════════════
+async function loadStats() {
+  try {
+    const s = await api('/api/stats');
+    document.getElementById('statRunning').textContent = s.running ?? '—';
+    document.getElementById('statTotal').textContent   = s.containers ?? '—';
+    document.getElementById('statUsers').textContent   = s.users ?? '—';
+    document.getElementById('statCPUs').textContent    = s.cpus ?? '—';
+    document.getElementById('sysOS').textContent       = s.os || '—';
+    document.getElementById('sysArch').textContent     = s.arch || '—';
+    document.getElementById('sysDocker').textContent   = s.serverVersion || '—';
+    document.getElementById('sysRAM').textContent      = s.memoryTotal ? (s.memoryTotal / 1024 / 1024 / 1024).toFixed(1) + ' GB' : '—';
+    document.getElementById('sysImages').textContent   = s.images ?? '—';
+
+    const badge = document.getElementById('runBadge');
+    badge.textContent = s.running;
+    if (s.running > 0) badge.classList.remove('hidden');
+    else badge.classList.add('hidden');
+  } catch (e) { console.error('Stats error', e.message); }
+}
+
+// ════════════════════════════════════════
+//  TEMPLATES
+// ════════════════════════════════════════
+async function loadTemplates() {
+  try {
+    templates = await api('/api/templates');
+    renderTemplates();
+  } catch (e) { console.error('Templates error', e.message); }
+}
+
+function renderTemplates() {
+  const grid = document.getElementById('tmplGrid');
+  grid.innerHTML = templates.map(t => `
+    <div class="tmpl-card" id="tmpl-${t.id}" onclick="selectTemplate('${t.id}')">
+      <div class="tmpl-icon">${t.icon}</div>
+      <div class="tmpl-label">${t.label}</div>
+      <div class="tmpl-sub">Port ${t.defaultPort}</div>
+    </div>`).join('');
+}
+
+function selectTemplate(id) {
+  selectedTmpl = id;
+  document.querySelectorAll('.tmpl-card').forEach(c => c.classList.remove('selected'));
+  const el = document.getElementById('tmpl-' + id);
+  if (el) el.classList.add('selected');
+  // Set default port
+  const tmpl = templates.find(t => t.id === id);
+  if (tmpl) document.getElementById('cPort').placeholder = `Default: ${tmpl.defaultPort}`;
+}
+
+// ════════════════════════════════════════
+//  CONTAINERS
+// ════════════════════════════════════════
+async function loadContainers() {
+  try {
+    const list = await api('/api/containers');
+    renderContainers(list);
+  } catch (e) {
+    showAlert('containerAlert', 'Error: ' + e.message, 'err');
+  }
+}
+
+function renderContainers(list) {
+  const el = document.getElementById('containerList');
+  if (!list.length) {
+    el.innerHTML = '<div style="text-align:center;color:rgba(255,255,255,.25);padding:30px;font-size:.75rem">No containers yet. Deploy one from Create VPS.</div>';
+    return;
+  }
+  el.innerHTML = `
+  <div style="overflow-x:auto">
+  <table class="tbl">
+    <thead>
+      <tr>
+        <th>NAME</th><th>TEMPLATE</th>${USER.role==='admin'?'<th>OWNER</th>':''}
+        <th>STATUS</th><th>PORT</th><th>RAM</th><th>ACTIONS</th>
+      </tr>
+    </thead>
+    <tbody>
+    ${list.map(c => `
+      <tr>
+        <td><span style="color:#fff">${c.icon||''} ${c.name}</span></td>
+        <td style="font-size:.62rem;color:rgba(255,255,255,.45)">${c.templateLabel||c.template}</td>
+        ${USER.role==='admin'?`<td style="font-size:.62rem;color:rgba(255,0,51,.6)">${c.owner}</td>`:''}
+        <td><span class="badge ${c.running?'badge-run':c.status==='removed'?'badge-rm':'badge-stop'}">${c.status}</span></td>
+        <td style="color:rgba(255,255,255,.5);font-size:.65rem">${c.port}</td>
+        <td style="color:rgba(255,255,255,.4);font-size:.65rem">${c.ram}MB</td>
+        <td>
+          <div style="display:flex;gap:5px;flex-wrap:wrap">
+            ${!c.running && c.status!=='removed' ? `<button class="btn btn-green btn-sm" onclick="containerAction('${c.id}','start')">▶ Start</button>` : ''}
+            ${c.running ? `<button class="btn btn-gray btn-sm" onclick="containerAction('${c.id}','stop')">■ Stop</button>
+                           <button class="btn btn-gray btn-sm" onclick="containerAction('${c.id}','restart')">↺ Restart</button>` : ''}
+            ${c.status!=='removed' ? `<button class="btn btn-gray btn-sm" onclick="viewLogs('${c.id}','${c.name}')">📋 Logs</button>` : ''}
+            <button class="btn btn-red btn-sm" onclick="if(confirm('Delete ${c.name}?'))containerAction('${c.id}','delete')">✕ Del</button>
+          </div>
+        </td>
+      </tr>`).join('')}
+    </tbody>
+  </table>
+  </div>`;
+}
+
+async function containerAction(id, action) {
+  try {
+    await api(`/api/containers/${id}/action`, 'POST', { action });
+    showAlert('containerAlert', `Action '${action}' executed`, 'ok');
+    setTimeout(loadContainers, 1000);
+  } catch (e) {
+    showAlert('containerAlert', e.message, 'err');
+  }
+}
+
+async function viewLogs(id, name) {
+  currentLogId = id;
+  document.getElementById('logContainerName').textContent = name;
+  document.getElementById('logViewer').textContent = 'Loading…';
+  document.getElementById('logModal').classList.remove('hidden');
+  await refreshLogs();
+}
+
+async function refreshLogs() {
+  if (!currentLogId) return;
+  try {
+    const data = await api(`/api/containers/${currentLogId}/logs`);
+    const viewer = document.getElementById('logViewer');
+    viewer.textContent = data.logs || '(no logs)';
+    viewer.scrollTop = viewer.scrollHeight;
+  } catch (e) {
+    document.getElementById('logViewer').textContent = 'Error: ' + e.message;
+  }
+}
+
+// ════════════════════════════════════════
+//  CREATE CONTAINER
+// ════════════════════════════════════════
+async function createContainer() {
+  const name     = document.getElementById('cName').value.trim();
+  const ram      = parseInt(document.getElementById('cRAM').value) || 512;
+  const portVal  = document.getElementById('cPort').value.trim();
+  const port     = portVal ? parseInt(portVal) : null;
+
+  if (!name)          return showAlert('createAlert', '[ ERROR ] Container name required', 'err');
+  if (!selectedTmpl)  return showAlert('createAlert', '[ ERROR ] Select a template first', 'err');
+
+  const btn  = document.getElementById('createBtn');
+  const prog = document.getElementById('createProgress');
+  const msg  = document.getElementById('createMsg');
+  btn.disabled = true;
+  btn.textContent = '⟳ LAUNCHING…';
+  prog.classList.remove('hidden');
+  msg.classList.remove('hidden');
+  msg.textContent = 'Pulling image…';
+  let pct = 10;
+  const progFill = document.getElementById('progressFill');
+  progFill.style.width = pct + '%';
+  const ticker = setInterval(() => {
+    if (pct < 85) { pct += 3; progFill.style.width = pct + '%'; }
+  }, 400);
+
+  try {
+    const result = await api('/api/containers/create', 'POST', {
+      name, template: selectedTmpl, ram, port,
+    });
+    clearInterval(ticker);
+    progFill.style.width = '100%';
+    showAlert('createAlert', `✓ Container '${result.name}' launched on port ${result.port}`, 'ok');
+    msg.textContent = `Running on port ${result.port}`;
+    setTimeout(() => { prog.classList.add('hidden'); msg.classList.add('hidden'); }, 3000);
+  } catch (e) {
+    clearInterval(ticker);
+    prog.classList.add('hidden');
+    msg.classList.add('hidden');
+    showAlert('createAlert', '[ ERROR ] ' + e.message, 'err');
+  }
+  btn.disabled = false;
+  btn.textContent = '⚡ LAUNCH CONTAINER';
+}
+
+// ════════════════════════════════════════
+//  USERS (admin)
+// ════════════════════════════════════════
+async function loadUsers() {
+  try {
+    const list = await api('/api/admin/users');
+    renderUsers(list);
+  } catch (e) {
+    showAlert('userAlert', e.message, 'err');
+  }
+}
+
+function renderUsers(list) {
+  const el = document.getElementById('userList');
+  el.innerHTML = `
+  <div style="overflow-x:auto">
+  <table class="tbl">
+    <thead>
+      <tr><th>USERNAME</th><th>ROLE</th><th>PLAN</th><th>CONTAINERS</th><th>STATUS</th><th>CREATED</th><th>ACTIONS</th></tr>
+    </thead>
+    <tbody>
+    ${list.map(u => `
+      <tr>
+        <td style="color:#fff">${u.username}</td>
+        <td><span class="badge ${u.role==='admin'?'badge-prem':'badge-rm'}">${u.role}</span></td>
+        <td><span class="badge ${u.plan==='premium'?'badge-prem':'badge-free'}">${u.plan}</span></td>
+        <td style="text-align:center">${u.containerCount}</td>
+        <td><span class="badge ${u.suspended?'badge-stop':'badge-run'}">${u.suspended?'SUSPENDED':'ACTIVE'}</span></td>
+        <td style="font-size:.6rem;color:rgba(255,255,255,.3)">${u.createdAt?u.createdAt.split('T')[0]:'—'}</td>
+        <td>
+          <div style="display:flex;gap:5px;flex-wrap:wrap">
+            ${u.plan==='free'?`<button class="btn btn-green btn-sm" onclick="upgradeUser('${u.id}','premium')">⬆ Upgrade</button>`:`<button class="btn btn-gray btn-sm" onclick="upgradeUser('${u.id}','free')">⬇ Downgrade</button>`}
+            ${u.suspended?`<button class="btn btn-green btn-sm" onclick="toggleSuspend('${u.id}',false)">✓ Activate</button>`:`<button class="btn btn-red btn-sm" onclick="toggleSuspend('${u.id}',true)">⊘ Suspend</button>`}
+            ${u.username!=='admin'?`<button class="btn btn-red btn-sm" onclick="if(confirm('Delete ${u.username}?'))deleteUser('${u.id}')">✕ Del</button>`:''}
+          </div>
+        </td>
+      </tr>`).join('')}
+    </tbody>
+  </table>
+  </div>`;
+}
+
+function showAddUserModal() {
+  document.getElementById('addUserModal').classList.remove('hidden');
+  document.getElementById('addUserAlert').classList.add('hidden');
+  ['auName','auPass'].forEach(id => document.getElementById(id).value = '');
+}
+
+async function addUser() {
+  const username = document.getElementById('auName').value.trim();
+  const password = document.getElementById('auPass').value;
+  const plan     = document.getElementById('auPlan').value;
+  const role     = document.getElementById('auRole').value;
+  if (!username || !password) return showAlert('addUserAlert', 'All fields required', 'err');
+  try {
+    await api('/api/admin/users', 'POST', { username, password, plan, role });
+    document.getElementById('addUserModal').classList.add('hidden');
+    showAlert('userAlert', `User '${username}' created`, 'ok');
+    loadUsers();
+  } catch (e) {
+    showAlert('addUserAlert', e.message, 'err');
+  }
+}
+
+async function upgradeUser(id, plan) {
+  try {
+    await api(`/api/admin/users/${id}`, 'PUT', { plan });
+    showAlert('userAlert', 'Plan updated', 'ok');
+    loadUsers();
+  } catch (e) { showAlert('userAlert', e.message, 'err'); }
+}
+
+async function toggleSuspend(id, suspended) {
+  try {
+    await api(`/api/admin/users/${id}`, 'PUT', { suspended });
+    showAlert('userAlert', suspended ? 'Account suspended' : 'Account activated', 'ok');
+    loadUsers();
+  } catch (e) { showAlert('userAlert', e.message, 'err'); }
+}
+
+async function deleteUser(id) {
+  try {
+    await api(`/api/admin/users/${id}`, 'DELETE');
+    showAlert('userAlert', 'User deleted', 'ok');
+    loadUsers();
+  } catch (e) { showAlert('userAlert', e.message, 'err'); }
+}
+
+// ════════════════════════════════════════
+//  SOCKET + CHAT
+// ════════════════════════════════════════
+function initSocket() {
+  socket = io({ transports: ['websocket', 'polling'] });
+
+  socket.on('connect', () => {
+    socket.emit('authenticate', { token: TOKEN });
+  });
+
+  socket.on('chat_history', msgs => {
+    const box = document.getElementById('chatBox');
+    box.innerHTML = '';
+    msgs.forEach(appendMsg);
+    box.scrollTop = box.scrollHeight;
+  });
+
+  socket.on('new_message', msg => {
+    appendMsg(msg);
+    const box = document.getElementById('chatBox');
+    box.scrollTop = box.scrollHeight;
+    const activeTab = document.querySelector('.tab-view.active');
+    if (!activeTab || activeTab.id !== 'tab-chat') {
+      chatUnread++;
+      const badge = document.getElementById('chatBadge');
+      badge.textContent = chatUnread;
+      badge.classList.remove('hidden');
+    }
+  });
+
+  socket.on('sys_event', e => {
+    const box = document.getElementById('chatBox');
+    const div = document.createElement('div');
+    div.className = 'sys-line';
+    div.textContent = `— ${e.text} —`;
+    box.appendChild(div);
+    box.scrollTop = box.scrollHeight;
+  });
+
+  let typingTimer;
+  socket.on('user_typing', ({ username }) => {
+    const el = document.getElementById('typingIndicator');
+    el.textContent = `${username} is typing…`;
+    clearTimeout(typingTimer);
+    typingTimer = setTimeout(() => { el.textContent = ''; }, 2000);
+  });
+
+  socket.on('create_progress', ({ name, msg }) => {
+    const el = document.getElementById('createMsg');
+    if (el && !el.classList.contains('hidden')) el.textContent = msg;
+  });
+}
+
+function appendMsg(msg) {
+  const box = document.getElementById('chatBox');
+  const isMine = msg.from === USER.username;
+  const div = document.createElement('div');
+  div.className = `chat-msg ${isMine ? 'mine' : 'other'} ${msg.role === 'admin' && !isMine ? 'admin-msg' : ''}`;
+  const time = new Date(msg.time).toLocaleTimeString();
+  div.innerHTML = `
+    <div style="color:${msg.role==='admin'?'#ffd700':isMine?'#ff6680':'#aaa'};font-size:.62rem;margin-bottom:2px">
+      ${msg.role==='admin'?'👑 ':''}<b>${msg.from}</b>
+    </div>
+    ${escapeHTML(msg.text)}
+    <div class="chat-meta">${time}</div>`;
+  box.appendChild(div);
+}
+
+function sendMsg() {
+  const inp = document.getElementById('chatInput');
+  const text = inp.value.trim();
+  if (!text || !socket) return;
+  socket.emit('send_message', { text });
+  inp.value = '';
+}
+
+document.addEventListener('keydown', () => {
+  const inp = document.getElementById('chatInput');
+  if (document.activeElement === inp && socket) socket.emit('typing');
+});
+
+function escapeHTML(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+// ════════════════════════════════════════
+//  UTILITIES
+// ════════════════════════════════════════
+function showAlert(id, msg, type) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.className = `alert mb-3 alert-${type==='ok'?'ok':type==='info'?'info':'err'}`;
+  el.textContent = msg;
+  el.classList.remove('hidden');
+  setTimeout(() => el.classList.add('hidden'), 5000);
+}
+
+function logout() {
+  localStorage.removeItem('nexus_token');
+  localStorage.removeItem('nexus_user');
+  window.location.href = '/';
+}
+
+// ════════════════════════════════════════
+//  BOOT
+// ════════════════════════════════════════
+init();
+</script>
+</body>
+</html>
